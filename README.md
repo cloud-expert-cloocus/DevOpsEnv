@@ -17,5 +17,6 @@ DevOps 환경 설정 스크립트, infrastructure as Code를 위한 표준 템�
 > > > > 
 > > > terraform.yml : 테라폼으로 Azure 리소스를 배포하기 위한 GiHub Workfow
 
-# Azure에 nodejs로 구성된 Web App을 자동으로 빌드하고 배포(CI/CD)하는 샘플 Workflow
+# azure-cicd.yml 설명
+Azure에 nodejs로 구성된 Web App을 자동으로 빌드하고 배포(CI/CD)하는 샘플 Workflow
 
