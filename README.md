@@ -4,6 +4,7 @@ DevOps 환경 설정 스크립트, infrastructure as Code를 위한 표준 템�
 <img src="/image/iac_cicd_flow.png" width="850px" height="300px" title="px(픽셀) 크기 설정" alt="IaC + CICD on Azure"></img><br/>
 # 구조 설명
 실제 GitHub의 Action을 활성화 하려면 ".yml"파일을 ".github"디렉토리 아래로 이동 시키고 완성하거나 참고하여 Action 메뉴에서 Workflow를 작성해야 합니다.
+[GitHub 공식 홈의 Actions 기능 설명](https://github.com/features/actions)
 <br>
 Terraform 디렉토리는 terraform.yml와 동일한 위치에 존재 해야 합니다.
 > Template 
