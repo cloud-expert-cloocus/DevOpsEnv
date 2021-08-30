@@ -1,0 +1,54 @@
+# Terraform 인프라 배포에 대한 샘플 코드입니다.
+
+name: 'Terraform'
+
+# Push하면 해당 branch에서 pipeline 구동
+on:
+  push:
+    branches:
+    # - main
+
+# 환경변수 지정
+env:
+  tf_actions_working_dir: ./Terraform
+
+# ubuntu-latest로 GitHub Actions를 구동/ working-directory 지정
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.tf_actions_working_dir }}
+
+    steps:
+    # GitHub 소스 체크
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # 최신버전 설치/ TF Cloud API 토큰 인증
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+    # Terraform init - 백엔드 초기화/ 플러그인, 모듈 설치
+    - name: Terraform Init
+      run: terraform init
+      
+    # Terraform Validate - 문법 검사
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate -no-color
+
+    # Terraform Plan - 배포하기 전 검토/ 변경 사항에 대해 확인
+    - name: Terraform Plan
+      run: terraform plan
+
+    # Terraform Apply - Plan에 제안된 작업을 실행
+    - name: Terraform Apply
+      if: github.event_name == 'push'
+      run: terraform apply -auto-approve
