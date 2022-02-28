@@ -1,102 +1,147 @@
-# 생성할 리소스들에 대해 정의합니다.
+# ==================================================================
+#  ResourceGroup
+# ==================================================================
 
-//==================================================================
-// Resource Group
-//==================================================================
-resource "azurerm_resource_group" "sample_rg" {
-  name     = var.sample_rg
-  location = var.location
+resource "azurerm_resource_group" "comm_network_rg" {
+  name     = var.network_resource_group
+  location = var.azure_region
+}
+
+resource "azurerm_resource_group" "mes_rg" {
+  name     = var.mes_resource_group
+  location = var.azure_region
 }
 
 
-//==================================================================
-// Network
-//==================================================================
-resource "azurerm_virtual_network" "sample_vnet" {
-  name                = var.sample_vnet
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.sample_rg.location
-  resource_group_name = azurerm_resource_group.sample_rg.name
+
+# ==================================================================
+#  Virtual Network
+# ==================================================================
+
+resource "azurerm_virtual_network" "vnet" {
+  name                = var.prd_vnet_name
+  resource_group_name = azurerm_resource_group.comm_network_rg.name
+  location            = azurerm_resource_group.comm_network_rg.location
+  address_space       = ["10.1.0.0/16"]
 }
 
-resource "azurerm_subnet" "sample_snet_001" {
-  name                 = var.sample_snet_001
-  resource_group_name  = azurerm_resource_group.sample_rg.name
-  virtual_network_name = azurerm_virtual_network.sample_vnet.name
-  address_prefixes     = ["10.0.0.0/24"]
+resource "azurerm_subnet" "mes_snet" {
+  name                 = var.prd_mes_snet_name
+  resource_group_name  = azurerm_resource_group.comm_network_rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefix       = "10.1.0.0/21"
 }
 
+# ==================================================================
+#  AKS Cluster
+# ==================================================================
 
-//==================================================================
-// WepApp
-//==================================================================
-resource "azurerm_app_service_plan" "sample_plan" {
-  name                = var.sample_plan
-  location            = azurerm_resource_group.sample_rg.location
-  resource_group_name = azurerm_resource_group.sample_rg.name
-  // Define Linux as Host OS
-  kind     = "Linux"
-  reserved = true
+resource "azurerm_kubernetes_cluster" "aks_cluster" {
+  name                = var.cluster_name
+  location            = azurerm_resource_group.mes_rg.location
+  resource_group_name = azurerm_resource_group.mes_rg.name
+  dns_prefix          = var.dns_name
+  kubernetes_version  = var.kubernetes_version
+  node_resource_group = var.node_rg
 
-  // Choose size
-  sku {
-    tier = "Basic"
-    size = "B1"
+  default_node_pool {
+    name                = "messervie"
+    vm_size             = "Standard_DS2_v2"
+    enable_auto_scaling = true
+    max_count           = 3
+    min_count           = 1
+    os_disk_size_gb     = 30
+    type                = "VirtualMachineScaleSets"
+    vnet_subnet_id      = azurerm_subnet.mes_snet.id
+    node_labels         = { 
+      "nodetype" : "master"
+    }
+  }
+
+  linux_profile {
+    admin_username = var.admin_username
+    ssh_key {
+      key_data = data.azurerm_key_vault_secret.ssh_public_key.value
+    }
+  }
+
+  network_profile {
+    network_plugin     = "azure"
+    network_policy     = "azure"
+    dns_service_ip     = "172.16.0.10"
+    docker_bridge_cidr = "172.17.0.1/16"
+    service_cidr       = "172.16.0.0/16"
+  }
+
+  role_based_access_control {
+    enabled = true
+  }
+
+  service_principal {
+    client_id     = data.azurerm_key_vault_secret.client-id.value
+    client_secret = data.azurerm_key_vault_secret.client-secret.value
   }
 }
 
-resource "azurerm_app_service" "sample_webapp" {
-  name                = var.sample_webapp
-  location            = azurerm_resource_group.sample_rg.location
-  resource_group_name = azurerm_resource_group.sample_rg.name
-  app_service_plan_id = azurerm_app_service_plan.sample_plan.id
+resource "azurerm_kubernetes_cluster_node_pool" "aks_nodepool" {
+  name                  = "mesworker"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks_cluster.id
+  mode                  = "User"
+  vm_size               = "Standard_DS2_v2"
+  enable_auto_scaling   = true
+  max_count             = 3
+  min_count             = 1
+  os_type               = "Linux"
+  os_disk_size_gb       = 30
+#   type                  = "VirtualMachineScaleSets"
+  node_labels           = { 
+    "nodetype" : "worker"
+    "servicetype" : "cpu"
+  }
 }
 
 
-//==================================================================
-// Cosmos DB
-//==================================================================
-resource "azurerm_resource_group" "sample_db_rg" {
-  name     = var.sample_db_rg
-  location = var.location
+# ==================================================================
+#  Azure Container Registry(ACR)
+# ==================================================================
+
+resource "azurerm_container_registry" "aks_acr" {
+  name                = var.acr_name
+  resource_group_name = azurerm_resource_group.mes_rg.name
+  location            = var.azure_region
+  sku                 = "Premium"
+  admin_enabled       = false
+  depends_on          = [azurerm_resource_group.mes_rg]
 }
 
-resource "random_integer" "ri" {
-  min = 10000
-  max = 99999
+# Assign AcrPull role to service principal
+resource "azurerm_role_assignment" "aks_sp_container_registry" {
+  scope                            = azurerm_container_registry.aks_acr.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = data.azurerm_key_vault_secret.client-id.value
+  skip_service_principal_aad_check = true
 }
 
-resource "azurerm_cosmosdb_account" "sample_cosmosdb_acc" {
-  name                      = var.sample_cosmosdb_acc
-  location                  = azurerm_resource_group.sample_db_rg.location
-  resource_group_name       = azurerm_resource_group.sample_db_rg.name
-  offer_type                = "Standard"
-  kind                      = "GlobalDocumentDB"
-  
-  enable_automatic_failover = true
 
-  capabilities {
-    name = "EnableAggregationPipeline"
-  }
+# ==================================================================
+#  Log Analytics
+# ==================================================================
 
-  capabilities {
-    name = "mongoEnableDocLevelTTL"
-  }
+resource "azurerm_log_analytics_workspace" "loga" {
+  name                = var.log_analytics_workspace_name
+  location            = var.log_analytics_workspace_location
+  resource_group_name = azurerm_resource_group.mes_rg.name
+}
 
-  capabilities {
-    name = "MongoDBv3.4"
-  }
+resource "azurerm_log_analytics_solution" "loga" {
+  solution_name         = "ContainerInsights"
+  location              = azurerm_log_analytics_workspace.loga.location
+  resource_group_name   = azurerm_resource_group.mes_rg.name
+  workspace_resource_id = azurerm_log_analytics_workspace.loga.id
+  workspace_name        = azurerm_log_analytics_workspace.loga.name
 
-  consistency_policy {
-    consistency_level       = "Session"
-  }
-
-  geo_location {
-    location          = var.failover_location
-    failover_priority = 1
-  }
-  geo_location {
-    location          = azurerm_resource_group.sample_rg.location
-    failover_priority = 0
+  plan {
+    publisher = "Microsoft"
+    product   = "OMSGallery/ContainerInsights"
   }
 }

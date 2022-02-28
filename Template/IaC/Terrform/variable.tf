@@ -1,55 +1,115 @@
-# 변수 값을 선언하여, Azure 인프라에 리소스를 배포할 수 있습니다.
+# ==================================================================
+#  ResourceGroup
+# ==================================================================
 
-// basic variable
-variable "sample_rg" {
+variable "network_resource_group" {
   type    = string
-  default = "sample-tst-devops-rg"
+  default = "thira-comm-koce-network-rg"
 }
 
-variable "sample_db_rg" {
+variable "mes_resource_group" {
   type    = string
-  default = "sample-tst-devops-rg"
+  default = "thira-prd-koce-mes-rg"
 }
 
-variable "location" {
+variable "azure_region" {
   type    = string
   default = "koreacentral"
 }
 
-// network variable
-variable "sample_vnet" {
+
+# ==================================================================
+#  Key Vault
+# ==================================================================
+
+variable "keyvault_resource_group" {
   type    = string
-  default = "sample-tst-vnet-001"
+  default = "thira-comm-koce-rsg"
+}
+variable "keyvault_name" {
+  type    = string
+  default = "thira-comm-koce-kvlt-001"
 }
 
-variable "sample_snet_001" {
+
+# ==================================================================
+#  Network
+# ==================================================================
+
+# prd
+variable "prd_vnet_name" {
   type    = string
-  default = "sample-tst-snet-001"
+  default = "thira-prd-koce-vnet"
 }
 
-// cosmos db variable
-variable "sample_cosmosdb_acc" {
+variable "prd_mes_snet_name" {
   type    = string
-  default = "sample-tst-cosmosdb-acc"
+  default = "thira-prd-koce-mes-snet"
 }
 
-variable "cosmos_db_account_name" {
+
+# ==================================================================
+#  Container Registry
+# ==================================================================
+
+variable "acr_name" {
   type    = string
-  default = "sample-cosmos-db-001"
+  default = "thiracommacr001"
 }
 
-variable "failover_location" {
+
+# ==================================================================
+#  Azure Kubernetes Cluster
+# ==================================================================
+
+# prd
+variable "cluster_name" {
   type    = string
+  default = "thira-prd-koce-mes-cluster"
+}
+
+variable "dns_name" {
+  type    = string
+  default = "thira-prd-001-dns"
+}
+
+variable "node_rg" {
+  type    = string
+  default = "thira-prd-koce-mes-nrg"
+}
+
+# comm
+variable "admin_username" {
+  type    = string
+  default = "thiraadmin"
+}
+
+variable "kubernetes_version" {
+  type    = string
+  default = "1.21.9"
+}
+
+variable "agent_pools" {
+  default = [
+    {
+      name            = "system"
+      count           = 2
+      vm_size         = "Standard_D1_v2"
+      os_type         = "Linux"
+      os_disk_size_gb = "20"
+    }
+  ]
+}
+
+
+# ==================================================================
+#  Log Analytics
+# ==================================================================
+
+variable "log_analytics_workspace_name" {
+  default = "thira-prd-koce-lga"
+}
+
+variable "log_analytics_workspace_location" {
   default = "koreacentral"
-}
-
-// web app
-variable "sample_plan" {
-  type    = string
-  default = "sample-tst-plan-001"
-}
-
-variable "sample_webapp" {
-  type    = string
-  default = "sample-tst-webapp-001"
 }
