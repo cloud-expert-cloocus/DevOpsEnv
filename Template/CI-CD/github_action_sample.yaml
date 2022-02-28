@@ -1,0 +1,30 @@
+name: push workshop branch # workflow 이름
+
+on: # 이벤트 감지
+  push:
+    branches:
+      - workshop
+
+env:
+  NODE_VERSION: '14.x' #환경변수 : 예시)사용 할 노드 버전
+
+jobs: # jod id 설정
+  build: # job id
+    name: Build and Test
+    #needs:종송석을 가진 job id
+    runs-on: ubuntu-lastest # job 가상환경 인스턴스(Runner)
+    steps:
+      - name: checkout source code # step 이름:
+        uses: actions/checkout@v2 # actions 사용
+      - name: Setup Node ${{ env.NODE_VERSION }} # 환경 변수 사용
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODE_VERSION }} #action의 입력 값
+      - name: Install Packages
+        run: npm install # single cmd 실행
+      - name: Build and test
+        run: | # set of cmd 실행
+          npm run build --if-present
+          npm run test --if-present
+            
+

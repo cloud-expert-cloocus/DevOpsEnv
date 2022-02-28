@@ -1,0 +1,55 @@
+# 기본 구문, 하나의 step
+steps:
+  - name: <display name> 
+    id: <unique identifier> # Context에서 참조 가능
+    env:
+      MY_VAR: Hi there! Welcome to
+      MY_COMPANY: Cloocus
+    run: echo $MY_VAR $MY_COMPANY. # 쉘 커맨드
+
+
+steps: # 가장 안정적인 순서...
+  # Reference a specific commit, commit SHA of a released action version
+  - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+  # Reference the major version of a release
+  - uses: actions/checkout@v2
+  # Reference a specific version
+  - uses: actions/checkout@v2.2.0
+  # Reference a branch
+  - uses: actions/checkout@main
+
+
+ build: # job id
+    name: Build and Test
+    needs: setup-infra
+    runs-on: ubuntu-latest
+    steps:
+    - name: 'Checkout the repo' 
+      uses: actions/checkout@main # action, 재사용 가능 코드 유닛
+   
+    - uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Setup Node ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+   
+    - run: rm -rf package-lock.json
+    - run: npm install
+    - run: npm ci
+    - run: npm run build --if-present
+    - run: npm test
+
+
+name: AzureLoginSample
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in with Azure
+        uses: azure/login@v1
+        with:
+          creds: '${{ secrets.AZURE_CREDENTIALS }}'

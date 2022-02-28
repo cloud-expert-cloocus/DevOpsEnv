@@ -1,0 +1,37 @@
+# 기본 구문
+jobs:
+  <job_id>: # 영문과 숫자 '-', ' '_'만 사용 가능, 다른 곳에서 참조 가능
+    name: <display name> # optional
+
+jobs:
+  first_job:
+    name: My first job
+  second_job:
+    name: My second job
+
+# job들에 종석성 부여하여 순차적으로 실행
+jobs:
+  job1:
+  job2:
+    needs: job1
+  job3:
+    needs: [job1, job2]
+
+# 조건 실행
+name: conditional job
+on: [push]
+jobs:
+  production-deploy:
+    if: github.repository == 'cloocus/workshop-prod'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+      - run: npm install -g bats
+
+# job을 실행 할 머신의 타입 정의
+runs-on: ubuntu-latest # GitHub 호스팅 runner [Ubuntu, Win Server, macOS]
+
+runs-on: [self-hosted, linux] # 'linux'로 레이블 된 자체 호스팅 runner

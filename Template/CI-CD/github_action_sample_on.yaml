@@ -1,0 +1,35 @@
+# 단일 이벤트
+on: push 
+
+# 여러 이벤트
+on: [push, pull_request] 
+
+# Activity types 사용
+on:
+  <event_name>
+    types:
+      - <activity type>
+on: 
+  label:
+    types:
+      - created
+
+# 필터 사용
+on:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '!**.md'
+      - '!docs/**'
+
+# cron job / 평일 5시(한국시간 14시)에 자동실행 
+on:
+  schedule:
+    - cron: '0 5 * * 1-5' # POSIX cron syntax 사용, UTC time
