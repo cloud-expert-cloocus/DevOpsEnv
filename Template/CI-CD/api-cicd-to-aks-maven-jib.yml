@@ -1,0 +1,115 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: (PRD)Java Build with Maven & Deploy to AKS
+
+on:
+  # Maual Test용
+  #repository_dispatch
+
+  push:
+#     paths:
+#       - 'mes-api/**'
+#       - '!mes-api/**.md'
+    branches: [ main ]
+
+  # PR이 Close 될 때 트리거
+  pull_request:
+  #   types: [closed]
+  #   paths:
+  #     - 'mes-api/**'
+  #     - '!mes-api/**.md'
+     branches: [ main ]
+    
+env:
+  # app env
+  WORKING_DIR: './mes-api'
+  # MES_API_PORT: '8090'
+  
+  # azure env - PRD
+  AZURE_RG: 'thira-prd-koce-mes-rg'
+  AZURE_REGION: 'koreacentral'
+  ACR_NAME: 'thiracommacr001'
+  AKS_SECRET: 'secret-for-acr'
+  AKS_CLUSTER: 'thira-prd-koce-mes-cluster'
+  
+  # POD env - PRD
+  NAMESPACE: 'ns-mes-api'
+  APP_NAME: 'mes-api'
+  AKS_MANI_DEPLOY: 'prd_deployment.yml'
+  AKS_MANI_SERVICE: 'prd_service.yml'
+
+jobs:
+  build-and-push-to-acr:
+    # PR이 Close 되었어도 Merge가 되지 않은 경우 트리거는 되지만 Job은 수행 되지 않음
+    #if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Azure Login
+      uses: Azure/login@v1.1
+      with:
+        creds: ${{secrets.AZURE_CREDENTIALS}}
+
+    - name: Azure Container Registry Login
+      uses: Azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_NAME }}.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }} 
+        password: ${{ secrets.ACR_PASSWORD }} 
+
+    - run: |
+        echo 'Start Build and Push to ACR'
+        
+        cd mes-api
+        mvn compile jib:build -Djib.to.tags=${{ github.run_number }}
+        
+        echo 'Complete Build and Push to ACR'
+ 
+  # Production 환경 
+  deploy-to-prd-aks:
+    needs: build-and-push-to-acr
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Azure Login
+      uses: Azure/login@v1.1
+      with:
+        creds: ${{secrets.AZURE_CREDENTIALS}}
+
+    # Set the target Azure Kubernetes Service (AKS) cluster. 
+    - uses: azure/aks-set-context@v1
+      with:
+        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+        cluster-name: ${{ env.AKS_CLUSTER }}
+        resource-group: ${{ env.AZURE_RG }}
+        
+    # Create namespace if doesn't exist
+    - run: |
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
+
+    # Create image pull secret for ACR
+    - uses: azure/k8s-create-secret@v1
+      with:
+        container-registry-url: ${{ env.ACR_NAME }}.azurecr.io
+        container-registry-username: ${{ secrets.ACR_USERNAME }}
+        container-registry-password: ${{ secrets.ACR_PASSWORD }}
+        secret-name: ${{ env.AKS_SECRET }}
+        namespace: ${{ env.NAMESPACE }}
+        arguments: --force true
+    
+    # Deploy app to AKS
+    - uses: azure/k8s-deploy@v1
+      with:
+        manifests: |
+          k8s_manifests/${{ env.AKS_MANI_DEPLOY }}
+          k8s_manifests/${{ env.AKS_MANI_SERVICE}}
+        images: |
+          ${{ env.ACR_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.run_number }}
+        imagepullsecrets: |
+          ${{ env.AKS_SECRET }}
+        namespace: ${{ env.NAMESPACE }}
